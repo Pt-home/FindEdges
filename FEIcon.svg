@@ -1,0 +1,8 @@
+<svg version="1.2" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 160" width="160" height="160">
+	<title>FEIcon-svg</title>
+	<style>
+		.s0 { fill: #000000 } 
+	</style>
+	<path id="Shape 1" fill-rule="evenodd" class="s0" d="m155 35.6v88.8q0 12.6-9 21.6-9 9-21.6 9h-88.8q-12.6 0-21.6-9-9-9-9-21.6v-88.8q0-12.6 9-21.6 9-9 21.6-9h88.8q12.6 0 21.6 9 9 9 9 21.6zm-30.6-17h-88.8q-7 0-12 5-5 5-5 12v88.8q0 7 5 12 5 5 12 5h88.8q7 0 12-5 5-5 5-12v-88.8q0-7-5-12-5-5-12-5z"/>
+	<path id="FE" class="s0" d="m44.9 88.4v29.6h-15.7v-75h43v13.1h-27.3v19.3h25.4v13zm85.1 16.5v13.1h-43.1v-75h43.1v13.1h-27.2v16.4h25.3v13h-25.3v19.4z"/>
+</svg>

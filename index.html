@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Find+ Edges</title>
+  <style>
+   body { 
+     background-color: #474747; 
+     user-select: none; 
+     margin: 0; 
+     padding: 0; }
+    body, input, select, label { 
+      font-family: "Open Sans", Sans-Serif; 
+      font-size: 12px; 
+      color: #d5d5d5; 
+      vertical-align: top; 
+      overflow: hidden; 
+    }
+    label { 
+      line-height:21px; 
+      display: block; 
+      margin: 2px 4px 0 0;
+      width:4em;
+    }
+    .form-group, .form-group-param {
+      text-align:center;
+    }
+    .form-group-param label { 
+      display: inline-block; 
+      width: 5em;
+      text-align: right;
+    }
+    input { 
+      background-color: #252525; 
+      border: 1px solid #252525; 
+      border-radius: 3px; 
+      transition: border 0.5s; 
+      padding: 3px; 
+      box-sizing: border-box; 
+      margin: 2px 2px;
+      width: 4em;
+    }
+
+    select { 
+      background-color: #252525; 
+      border: 1px solid #252525; 
+      border-radius: 3px; 
+      transition: border 0.5s; 
+      padding: 3px; 
+      box-sizing: border-box; 
+      margin: 2px 2px;
+      width: 10em;
+    }
+     
+    input:not(.button):hover, select:hover, input:not(.button):focus, select:focus 
+    { border: 1px solid #3482f6; 
+     outline: none !important; 
+    }
+    .button { 
+      background-color: #606060; 
+      margin: 8px 0 0 1.5px; 
+      border-radius: 3px; 
+      border-top-width: 1px; 
+      border-top-color: rgba(255,255,255,0.15); 
+      border-bottom-width: 1px;
+      border-bottom-color: rgba(0,0,0,0.6);
+      border-left: 0px; 
+      border-right: 0px;
+      padding: 8px;
+      font-size: 13px; 
+      width:18em;
+      text-overflow: ellipsis; 
+      cursor: pointer;
+    }
+    .button:hover { 
+      background-color: #6a6a6a;
+    }
+    .buttonPreset {
+      width:11em;
+    }
+    .page {
+      padding: 6px;
+      margin: 0px auto;
+    }
+    .page > div {
+      margin-bottom: 6px;
+    }
+    h3 {
+      text-align:center;
+      line-height: 0;
+    }
+    .methodValue {
+      width: 14em;
+    }
+       
+  </style>
+  
+  <script src="image-processor.js"></script>
+  
+  <script>
+    var wasm;
+    
+    Module.onRuntimeInitialized = async () => {
+      // WASM from image-processor.js initialized
+      wasm = {
+              alloc: Module.cwrap("wasmAlloc", "number", ["number", "number"]),
+              free: Module.cwrap("wasmFree", "void", ["number"]),
+              process: Module.cwrap("wasmProcess", "void", ["number", "number", "number", "number", 
+                                                            "string"]),
+            };
+      
+      document.getElementById("applyNF").style.visibility = "visible";
+      document.getElementById("applySL").style.visibility = "visible";
+    }
+  </script>
+</head>
+<body>
+    <div id="page" class="page">
+    <h3>Find+ Edges</h3>      
+      
+    <form id="FE">
+
+      <div class="form-group-param">
+        <label for="methodValue">Method:</label>
+        <select name="methodValue" class="methodValue" id="methodValue">
+          <option value="kirsch">Kirsch</option> 
+          <option value="laplace3">Laplace (3 x 3)</option>
+          <option value="laplace5">Laplace (5 x 5)</option>
+          <option value="prewitt">Prewitt</option>
+          <option value="roberts">Roberts</option> 
+          <option value="robinson">Robinson</option>
+          <option value="scharr" selected>Scharr</option> 
+          <option value="sobel">Sobel</option> 
+        </select>
+      </div>
+
+     </form>
+      
+     <div class="form-group">
+       <input type="button" value="Apply Filter (New File)" id="applyNF" style="visibility: hidden"
+              onclick="applyFE(false);" class="button"/>
+     </div>
+     <div class="form-group">
+       <input type="button" value="Apply Filter (New Smart Layer)" id="applySL" style="visibility: hidden"
+              onclick="applyFE(true);" class="button"/>
+     </div>
+
+    <div class="form-group">
+       <p id="indi">Runtime (ms): <span id="runtime">0</span> </p> 
+       <p id="working">Working...</p> 
+     </div>
+    
+  </div>
+
+  <script>
+    
+  var _running = false, _buffer = null;
+  var smartObject = null;
+    
+  var indi = document.getElementById("indi");
+  indi.style.visibility = "hidden";
+  var working = document.getElementById("working");
+  working.style.visibility = "hidden";
+  var runTime = document.getElementById("runtime");
+   
+  window.addEventListener("message", onMessage); 
+    
+  function onMessage(e) {
+      if (_running && e.data instanceof ArrayBuffer){
+          _buffer = e.data;
+          FE();
+      } else if (_running && e.data == "done") {
+          _running = false; _buffer = null;
+      } 
+  }
+
+  function applyFE(flag){
+     _running = true;
+     smartObject = flag;
+     window.parent.postMessage("app.activeDocument.saveToOE('png');", "*");
+     indi.style.visibility = "hidden";
+     working.style.visibility = "visible";
+  }
+
+  function FE(){
+    
+    // Создаем временный canvas
+    var tempCanvas = document.createElement('canvas');
+    var tempContext = tempCanvas.getContext('2d');
+    var blob = new Blob([_buffer], { type: 'image/png' });
+
+    function loadImageAndProcess(blob) {
+       return new Promise(function(resolve, reject) {
+          var url = URL.createObjectURL(blob);
+          var image = new Image();
+          image.src = url;
+    
+          image.onload = function() {
+            // Изображение успешно загружено
+            resolve(image);
+           };
+    
+            image.onerror = function() {
+              // Произошла ошибка загрузки изображения
+                reject(new Error('Ошибка загрузки изображения'));
+            };
+        });
+    }
+      
+    loadImageAndProcess(blob)
+      .then(function(image) {
+        var startTime = new Date();
+
+         //Read parameters
+        var form = document.getElementById("FE");
+
+        var method = form.elements.methodValue.value;         
+
+        tempCanvas.width = image.width;
+        tempCanvas.height = image.height;
+        tempContext.drawImage(image, 0, 0);
+        var imageData = tempContext.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
+        //console.log(imageData);
+        
+        //Start working=========================================================  
+
+        // Allocate a buffer for the pixels in WASM.
+        var wasmBufferPtr = wasm.alloc(image.width, image.height);
+          
+        // Copy the image pixels into the buffer.
+        Module.HEAPU8.set(imageData.data, wasmBufferPtr);
+          
+        // Process the image in WASM.
+        //wasm.process(imageData.width, imageData.height, wasmBufferPtr);
+        wasm.process(wasmBufferPtr, image.width * image.height * 4, image.width, image.height, method);
+          
+        // Draw the image back to the canvas.
+        var outputImage = new ImageData(
+              new Uint8ClampedArray(Module.HEAPU8.buffer, wasmBufferPtr, image.width * image.height * 4),
+              image.width,
+              image.height
+        );
+       
+        function putImageDataPromise(tempContext, outputImage, wasmBufferPtr) {
+            return new Promise(function(resolve, reject) {
+              
+              tempContext.putImageData(outputImage, 0, 0);
+              // Free the buffer we allocated for the image pixels.
+              wasm.free(wasmBufferPtr);
+              
+              resolve();
+              });
+        }
+  
+        putImageDataPromise(tempContext, outputImage, wasmBufferPtr)
+          .then(function() {  
+       
+            window.parent.postMessage("app.open('" + tempCanvas.toDataURL('image/png') + "',null," + smartObject + ");", "*");
+            const endTime = new Date();
+            const duration = endTime - startTime;
+  
+            runTime.innerHTML = duration;
+            working.style.visibility = "hidden";
+            indi.style.visibility = "visible";          
+          })
+          .catch(function(error) {
+            console.error('Error:', error);
+          });
+        
+    })
+      .catch(function(error) {
+        console.error(error);
+    });
+      
+  }
+  </script>  
+</body>
+</html>
